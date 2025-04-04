@@ -9,7 +9,7 @@
       packages.${system}.default = pkgs.stdenv.mkDerivation {
         name = "timelock";
         src = ./.;
-        buildInputs = [ (pkgs.python312.withPackages (ps: [ ps.pycryptodome ps.progress ])) ];
+        buildInputs = [ (pkgs.python313.withPackages (ps: [ ps.pycryptodome ps.progress ])) ];
         installPhase = ''
           mkdir -p $out/bin
           cp main.py $out/bin/timelock
