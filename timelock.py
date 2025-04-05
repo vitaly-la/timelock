@@ -10,6 +10,7 @@ from Crypto.Protocol.KDF import scrypt
 from Crypto.Random import get_random_bytes
 from Crypto.Util.number import getPrime
 from Crypto.Util.Padding import pad, unpad
+from progress.bar import Bar
 
 HALF_KEY_SIZE = 1024
 
@@ -23,11 +24,21 @@ def gen_puzzle(half_key_size: int, iterations: int) -> tuple[int, int]:
     return modulo, secret_key
 
 
-def solve_puzzle(iterations: str, modulo: str) -> int:
+def solve_puzzle(iterations: int, modulo: str) -> int:
     proc = subprocess.run(
-        [os.environ["SOLVER"], iterations, modulo], stdout=subprocess.PIPE, check=True
+        [os.environ["SOLVER"], "2", str(iterations % 100), modulo],
+        stdout=subprocess.PIPE,
+        check=True,
     )
-    secret_key = int(proc.stdout.decode().strip())
+    base = proc.stdout.decode().strip()
+    for _ in Bar("Solving time-lock puzzle").iter(range(100)):
+        proc = subprocess.run(
+            [os.environ["SOLVER"], base, str(iterations // 100), modulo],
+            stdout=subprocess.PIPE,
+            check=True,
+        )
+        base = proc.stdout.decode().strip()
+    secret_key = int(base)
     return secret_key
 
 
@@ -82,7 +93,7 @@ def decrypt_file(filename: str) -> None:
             for k, v in (line.split(" = ") for line in dec.readlines() if " = " in line)
         }
     iterations, modulo, encrypted_message = (
-        puzzle["t"],
+        int(puzzle["t"]),
         puzzle["n"],
         base64.b64decode(puzzle["msg"]),
     )

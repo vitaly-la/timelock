@@ -4,15 +4,6 @@
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
-
-      solver = pkgs.rustPlatform.buildRustPackage {
-        name = "solver";
-        src = rust/solver;
-
-        nativeBuildInputs = with pkgs; [ cargo m4 ];
-
-        cargoLock.lockFile = rust/solver/Cargo.lock;
-      };
     in
     {
       packages.${system}.default = pkgs.stdenv.mkDerivation {
@@ -20,13 +11,17 @@
         src = ./.;
 
         nativeBuildInputs = [ pkgs.makeWrapper ];
-        buildInputs = [ (pkgs.python313.withPackages (ps: [ ps.pycryptodome ])) ];
+        buildInputs = with pkgs; [ (python313.withPackages (ps: with ps; [ pycryptodome progress ])) gcc gmp ];
 
-        postInstall = ''
+        buildPhase = ''
+          gcc -march=native -O3 solver.c -lgmp -o solver
+        '';
+
+        installPhase = ''
           mkdir -p $out/{lib,bin}
-          cp python/timelock.py $out/bin/timelock
+          cp timelock.py $out/bin/timelock
           chmod +x $out/bin/timelock
-          cp ${solver}/bin/solver $out/lib
+          cp solver $out/lib
           wrapProgram $out/bin/timelock --set SOLVER $out/lib/solver
         '';
       };

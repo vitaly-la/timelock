@@ -1,8 +1,0 @@
-[package]
-name = "solver"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-indicatif = { version = "0.17.11", default-features = false }
-rug = { version = "1.27.0", default-features = false, features=["integer"] }

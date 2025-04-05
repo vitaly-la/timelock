@@ -5,33 +5,41 @@
 #include <gmp.h>
 
 int main(int argc, char *argv[]) {
-    mp_limb_t x[64] = {2};
-    mp_limb_t n[64] = {0};
-    mp_limb_t sqr[64] = {0};
-    mp_limb_t quotient[64] = {0};
     unsigned char digits[1024] = {0};
+    mp_limb_t sqr[64] = {0};
+    mp_limb_t x[64] = {0};
+    mp_limb_t n[64] = {0};
+    mp_limb_t quotient[64] = {0};
     uint64_t i = 0;
     uint64_t t = 0;
+    mp_size_t mp_len = 0;
     size_t len = 0;
 
-    t = atoll(argv[1]);
-    len = strlen(argv[2]);
+    len = strlen(argv[1]);
     for (i = 0; i < len; ++i) {
-        digits[i] = argv[2][i] - '0';
+        digits[i] = argv[1][i] - '0';
     }
-    mpn_set_str(n, digits, len, 10);
+    mpn_set_str(x, digits, len, 10);
+
+    t = atoll(argv[2]);
+
+    len = strlen(argv[3]);
+    for (i = 0; i < len; ++i) {
+        digits[i] = argv[3][i] - '0';
+    }
+    mp_len = mpn_set_str(n, digits, len, 10);
 
     for (i = 0; i < t; ++i) {
         mpn_sqr(sqr, x, 32);
-        mpn_tdiv_qr(quotient, x, 0, sqr, 64, n, 32);
+        mpn_tdiv_qr(quotient, x, 0, sqr, 64, n, mp_len);
     }
 
-    memset(digits, 0, sizeof(digits));
     len = mpn_get_str(digits, 10, x, 32);
     for (i = 0; i < len; ++i) {
         digits[i] += '0';
     }
-    printf("%s\n", digits);
+    digits[len] = '\0';
+    puts(digits);
 
     return 0;
 }
