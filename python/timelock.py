@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-import pickle
+import base64
+import os
+import subprocess
 import sys
 
 from Crypto.Cipher import AES
@@ -8,9 +10,8 @@ from Crypto.Protocol.KDF import scrypt
 from Crypto.Random import get_random_bytes
 from Crypto.Util.number import getPrime
 from Crypto.Util.Padding import pad, unpad
-from progress.bar import Bar
 
-HALF_KEY_SIZE = 2048
+HALF_KEY_SIZE = 1024
 
 
 def gen_puzzle(half_key_size: int, iterations: int) -> tuple[int, int]:
@@ -22,10 +23,11 @@ def gen_puzzle(half_key_size: int, iterations: int) -> tuple[int, int]:
     return modulo, secret_key
 
 
-def solve_puzzle(modulo: int, iterations: int) -> int:
-    secret_key = pow(2, pow(2, iterations % 100), modulo)
-    for _ in Bar("Solving time-lock puzzle").iter(range(100)):
-        secret_key = pow(secret_key, pow(2, iterations // 100), modulo)
+def solve_puzzle(iterations: str, modulo: str) -> int:
+    proc = subprocess.run(
+        [os.environ["SOLVER"], iterations, modulo], stdout=subprocess.PIPE, check=True
+    )
+    secret_key = int(proc.stdout.decode().strip())
     return secret_key
 
 
@@ -43,8 +45,8 @@ def encrypt(message: bytes, secret_key: int) -> bytes:
 
 def decrypt(encrypted_message: bytes, secret_key: int) -> bytes:
     salt = encrypted_message[:16]
-    iv = encrypted_message[16:16 + AES.block_size]
-    encrypted_bytes = encrypted_message[16 + AES.block_size:]
+    iv = encrypted_message[16 : 16 + AES.block_size]
+    encrypted_bytes = encrypted_message[16 + AES.block_size :]
     key_bytes = scrypt(
         secret_key.to_bytes(2 * HALF_KEY_SIZE), salt, 32, N=2**20, r=8, p=1
     )
@@ -59,26 +61,32 @@ def encrypt_file(filename: str, iterations: int) -> None:
     with open(filename, "rb") as file:
         message = file.read()
     encrypted_message = encrypt(message, secret_key)
-    with open(f"{filename}.pickle", "wb") as pkl:
-        pickle.dump(
-            dict(
-                modulo=modulo,
-                iterations=iterations,
-                encrypted_message=encrypted_message,
-            ),
-            pkl,
+    with open(f"{filename}.enc", "w") as enc:
+        enc.write(
+            "\n".join(
+                f"{k} = {v}"
+                for k, v in dict(
+                    t=iterations,
+                    n=modulo,
+                    msg=base64.b64encode(encrypted_message).decode(),
+                ).items()
+            )
         )
+        enc.write("\n")
 
 
 def decrypt_file(filename: str) -> None:
-    with open(filename, "rb") as pkl:
-        puzzle = pickle.load(pkl)
-    modulo, iterations, encrypted_message = (
-        puzzle["modulo"],
-        puzzle["iterations"],
-        puzzle["encrypted_message"],
+    with open(filename, "r") as dec:
+        puzzle = {
+            k: v.strip()
+            for k, v in (line.split(" = ") for line in dec.readlines() if " = " in line)
+        }
+    iterations, modulo, encrypted_message = (
+        puzzle["t"],
+        puzzle["n"],
+        base64.b64decode(puzzle["msg"]),
     )
-    secret_key = solve_puzzle(modulo, iterations)
+    secret_key = solve_puzzle(iterations, modulo)
     decrypted_message = decrypt(encrypted_message, secret_key)
     with open(f"{filename}.dec", "wb") as file:
         file.write(decrypted_message)
@@ -101,7 +109,7 @@ def main() -> None:
             filename = sys.argv[3]
             print(f"Encrypting {filename}")
             encrypt_file(filename, iterations)
-            print(f"Encrypted message written to {filename}.pickle")
+            print(f"Encrypted message written to {filename}.enc")
         case "decrypt":
             if len(sys.argv) != 3:
                 usage()
