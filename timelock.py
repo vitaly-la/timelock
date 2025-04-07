@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 import base64
+import hashlib
 import os
 import subprocess
 import sys
 
 from Crypto.Cipher import AES
-from Crypto.Protocol.KDF import scrypt
 from Crypto.Random import get_random_bytes
 from Crypto.Util.number import getPrime
 from Crypto.Util.Padding import pad, unpad
@@ -15,13 +15,13 @@ from progress.bar import Bar
 HALF_KEY_SIZE = 1024
 
 
-def gen_puzzle(half_key_size: int, iterations: int) -> tuple[int, int]:
-    p = getPrime(half_key_size)
-    q = getPrime(half_key_size)
+def gen_puzzle(iterations: int) -> tuple[int, int]:
+    p = getPrime(HALF_KEY_SIZE)
+    q = getPrime(HALF_KEY_SIZE)
     modulo = p * q
     phi = (p - 1) * (q - 1)
     secret_key = pow(2, pow(2, iterations, phi), modulo)
-    return modulo, secret_key
+    return secret_key, modulo
 
 
 def solve_puzzle(iterations: int, modulo: str) -> int:
@@ -43,34 +43,28 @@ def solve_puzzle(iterations: int, modulo: str) -> int:
 
 
 def encrypt(message: bytes, secret_key: int) -> bytes:
-    salt = get_random_bytes(16)
-    key_bytes = scrypt(
-        secret_key.to_bytes(2 * HALF_KEY_SIZE), salt, 32, N=2**20, r=8, p=1
-    )
+    key_bytes = hashlib.sha256(secret_key.to_bytes(2 * HALF_KEY_SIZE)).digest()
     iv = get_random_bytes(AES.block_size)
     cipher = AES.new(key_bytes, AES.MODE_CBC, iv)
     padded_message = pad(message, AES.block_size)
     encrypted_message = cipher.encrypt(padded_message)
-    return salt + iv + encrypted_message
+    return iv + encrypted_message
 
 
 def decrypt(encrypted_message: bytes, secret_key: int) -> bytes:
-    salt = encrypted_message[:16]
-    iv = encrypted_message[16 : 16 + AES.block_size]
-    encrypted_bytes = encrypted_message[16 + AES.block_size :]
-    key_bytes = scrypt(
-        secret_key.to_bytes(2 * HALF_KEY_SIZE), salt, 32, N=2**20, r=8, p=1
-    )
+    key_bytes = hashlib.sha256(secret_key.to_bytes(2 * HALF_KEY_SIZE)).digest()
+    iv = encrypted_message[: AES.block_size]
     cipher = AES.new(key_bytes, AES.MODE_CBC, iv)
+    encrypted_bytes = encrypted_message[AES.block_size :]
     decrypted_padded = cipher.decrypt(encrypted_bytes)
     decrypted_message = unpad(decrypted_padded, AES.block_size)
     return decrypted_message
 
 
 def encrypt_file(filename: str, iterations: int) -> None:
-    modulo, secret_key = gen_puzzle(HALF_KEY_SIZE, iterations)
     with open(filename, "rb") as file:
         message = file.read()
+    secret_key, modulo = gen_puzzle(iterations)
     encrypted_message = encrypt(message, secret_key)
     with open(f"{filename}.enc", "w") as enc:
         enc.write(
