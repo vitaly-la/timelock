@@ -1,29 +1,45 @@
 {
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/release-24.11";
-  outputs = { self, nixpkgs }:
-    let
-      system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
-    in
-    {
-      packages.${system}.default = pkgs.stdenv.mkDerivation {
-        name = "timelock";
-        src = ./.;
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
 
-        nativeBuildInputs = [ pkgs.makeWrapper ];
-        buildInputs = with pkgs; [ (python313.withPackages (ps: with ps; [ pycryptodome progress ])) gcc gmp ];
+  outputs = { self, flake-utils, nixpkgs }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = import nixpkgs { inherit system; };
 
-        buildPhase = ''
-          gcc -march=native -O3 solver.c -lgmp -o solver
-        '';
+        gmpNative = pkgs.gmp.overrideAttrs (old: {
+          depsBuildBuild = [ pkgs.gcc ];
 
-        installPhase = ''
-          mkdir -p $out/{lib,bin}
-          cp timelock.py $out/bin/timelock
-          chmod +x $out/bin/timelock
-          cp solver $out/lib
-          wrapProgram $out/bin/timelock --set SOLVER $out/lib/solver
-        '';
-      };
-    };
+          NIX_ENFORCE_NO_NATIVE = false;
+          CFLAGS = "-march=native -O3";
+          CXXFLAGS = "-march=native -O3";
+          NIX_CFLAGS_COMPILE = "-march=native -O3";
+        });
+      in
+      {
+        packages.default = pkgs.stdenv.mkDerivation {
+          name = "timelock";
+          src = ./.;
+
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          buildInputs = with pkgs; [ (python313.withPackages (ps: with ps; [ pycryptodome progress ])) gcc gmpNative ];
+
+          NIX_ENFORCE_NO_NATIVE = false;
+
+          buildPhase = ''
+            gcc -march=native -O3 solver.c -lgmp -o solver
+          '';
+
+          installPhase = ''
+            mkdir -p $out/{bin,lib}
+            cp timelock.py $out/bin/timelock
+            chmod +x $out/bin/timelock
+            cp solver $out/lib
+            wrapProgram $out/bin/timelock --set SOLVER $out/lib/solver
+          '';
+        };
+      }
+    );
 }
