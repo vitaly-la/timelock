@@ -6,10 +6,10 @@
 
 int main(int argc, char *argv[]) {
     unsigned char digits[1024] = {0};
-    mp_limb_t sqr[64] = {0};
-    mp_limb_t x[64] = {0};
-    mp_limb_t n[64] = {0};
-    mp_limb_t quotient[64] = {0};
+    mp_limb_t quotient[96] = {0};
+    mp_limb_t sqr[96] = {0};
+    mp_limb_t x[48] = {0};
+    mp_limb_t n[48] = {0};
     uint64_t i = 0;
     uint64_t t = 0;
     mp_size_t mp_len = 0;
@@ -30,11 +30,11 @@ int main(int argc, char *argv[]) {
     mp_len = mpn_set_str(n, digits, len, 10);
 
     for (i = 0; i < t; ++i) {
-        mpn_sqr(sqr, x, 32);
-        mpn_tdiv_qr(quotient, x, 0, sqr, 64, n, mp_len);
+        mpn_sqr(sqr, x, 48);
+        mpn_tdiv_qr(quotient, x, 0, sqr, 96, n, mp_len);
     }
 
-    len = mpn_get_str(digits, 10, x, 32);
+    len = mpn_get_str(digits, 10, x, 48);
     for (i = 0; i < len; ++i) {
         digits[i] += '0';
     }

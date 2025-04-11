@@ -10,8 +10,6 @@
         pkgs = import nixpkgs { inherit system; };
 
         gmpNative = pkgs.gmp.overrideAttrs (old: {
-          depsBuildBuild = [ pkgs.gcc ];
-
           NIX_ENFORCE_NO_NATIVE = false;
           CFLAGS = "-march=native -O3";
           CXXFLAGS = "-march=native -O3";

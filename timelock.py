@@ -13,7 +13,7 @@ from Crypto.Util.number import getPrime
 from Crypto.Util.Padding import pad, unpad
 from progress.bar import Bar
 
-HALF_KEY_SIZE = 1024
+HALF_KEY_SIZE = 1536
 
 
 def gen_puzzle(squarings: int) -> tuple[int, int]:
@@ -121,7 +121,7 @@ def main() -> None:
                 usage()
             if sys.argv[2].endswith("s"):
                 print("Running benchmark")
-                test_squarings = 10000000
+                test_squarings = 1000000
                 elapsed_ns = benchmark_ns(str(test_squarings))
                 squarings = test_squarings * int(sys.argv[2][:-1]) * 10**9 // elapsed_ns
                 rate = test_squarings * 10**9 // elapsed_ns
