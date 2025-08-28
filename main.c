@@ -12,10 +12,6 @@ void print_usage()
            "       timelock unlock <filename>\n");
 }
 
-void gen_puzzle(unsigned long long squarings)
-{
-}
-
 void lock_file(const char *path, unsigned long long squarings)
 {
     int fd = open(path, O_RDONLY);
@@ -26,27 +22,55 @@ void lock_file(const char *path, unsigned long long squarings)
 
     char *addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
 
-    ;
+    char ext[] = ".enc";
+    char *new_path = malloc(strlen(path) + sizeof(ext));
+    memcpy(new_path, path, strlen(path));
+    memcpy(new_path + strlen(path), ext, sizeof(ext));
 
+    FILE *fp = fopen(new_path, "w");
+    fwrite(addr, sizeof(*addr), len, fp);
+
+    fclose(fp);
+    free(new_path);
     munmap(addr, len);
     close(fd);
 }
 
 void unlock_file(const char *path)
 {
+    int fd = open(path, O_RDONLY);
+
+    struct stat sb;
+    fstat(fd, &sb);
+    size_t len = sb.st_size;
+
+    char *addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
+
+    char ext[] = ".dec";
+    char *new_path = malloc(strlen(path) + sizeof(ext));
+    memcpy(new_path, path, strlen(path));
+    memcpy(new_path + strlen(path), ext, sizeof(ext));
+
+    FILE *fp = fopen(new_path, "w");
+    fwrite(addr, sizeof(*addr), len, fp);
+
+    fclose(fp);
+    free(new_path);
+    munmap(addr, len);
+    close(fd);
 }
 
 int main(int argc, char **argv)
 {
     if (argc < 2) {
         print_usage();
-        exit(0);
+        return 0;
     }
 
     if (strcmp(argv[1], "lock") == 0) {
         if (argc != 4) {
             print_usage();
-            exit(0);
+            return 0;
         }
 
         unsigned long long squarings = strtoll(argv[2], NULL, 10);
@@ -58,7 +82,7 @@ int main(int argc, char **argv)
     } else if (strcmp(argv[1], "unlock") == 0) {
         if (argc != 3) {
             print_usage();
-            exit(0);
+            return 0;
         }
 
         char *path = argv[2];
