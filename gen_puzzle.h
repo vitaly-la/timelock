@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
-void gen_puzzle(uint64_t squarings, char **modulo);
+void gen_puzzle(char **secret_key_str, char **modulo_str,
+                uint64_t squarings);
 
 #endif

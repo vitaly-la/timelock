@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "crypto.h"
 #include "gen_puzzle.h"
 
 static void print_usage(void)
@@ -25,9 +26,11 @@ static void lock_file(const char *path, uint64_t squarings)
 
     char *addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
 
-    char *modulo_str;
-    gen_puzzle(squarings, &modulo_str);
-    printf("Generated modulo string: %s\n", modulo_str);
+    char *secret_key, *modulo;
+    gen_puzzle(&secret_key, &modulo, squarings);
+    printf("Generated modulo string: %s\n", modulo);
+
+    encrypt(addr, len, secret_key);
 
     char ext[] = ".enc";
     char *new_path = malloc(strlen(path) + sizeof(ext));
@@ -39,6 +42,8 @@ static void lock_file(const char *path, uint64_t squarings)
 
     fclose(fp);
     free(new_path);
+    free(secret_key);
+    free(modulo);
     munmap(addr, len);
     close(fd);
 }

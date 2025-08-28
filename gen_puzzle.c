@@ -4,7 +4,8 @@
 
 enum { half_key_size = 1536 };
 
-void gen_puzzle(uint64_t squarings, char **modulo_str)
+void gen_puzzle(char **secret_key_str, char **modulo_str,
+                uint64_t squarings)
 {
     gmp_randstate_t state;
     gmp_randinit_default(state);
@@ -29,9 +30,9 @@ void gen_puzzle(uint64_t squarings, char **modulo_str)
     mpz_mul(phi, p1, q1);
 
     mpz_powm(exp, two, squarings_mpz, phi);
-
     mpz_powm(secret_key, two, exp, modulo);
 
+    *secret_key_str = mpz_get_str(NULL, 10, secret_key);
     *modulo_str = mpz_get_str(NULL, 10, modulo);
 
     mpz_clears(rop, p, q, modulo, p1, q1, phi,
