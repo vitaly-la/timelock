@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,21 +7,27 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-void print_usage()
+#include "gen_puzzle.h"
+
+static void print_usage(void)
 {
     printf("Usage: timelock lock <squarings>|<seconds>s <filename>\n"
            "       timelock unlock <filename>\n");
 }
 
-void lock_file(const char *path, unsigned long long squarings)
+static void lock_file(const char *path, uint64_t squarings)
 {
     int fd = open(path, O_RDONLY);
 
     struct stat sb;
     fstat(fd, &sb);
-    size_t len = sb.st_size;
+    size_t len = (size_t)sb.st_size;
 
     char *addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
+
+    char *modulo_str;
+    gen_puzzle(squarings, &modulo_str);
+    printf("Generated modulo string: %s\n", modulo_str);
 
     char ext[] = ".enc";
     char *new_path = malloc(strlen(path) + sizeof(ext));
@@ -36,13 +43,13 @@ void lock_file(const char *path, unsigned long long squarings)
     close(fd);
 }
 
-void unlock_file(const char *path)
+static void unlock_file(const char *path)
 {
     int fd = open(path, O_RDONLY);
 
     struct stat sb;
     fstat(fd, &sb);
-    size_t len = sb.st_size;
+    size_t len = (size_t)sb.st_size;
 
     char *addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
 
@@ -73,7 +80,7 @@ int main(int argc, char **argv)
             return 0;
         }
 
-        unsigned long long squarings = strtoll(argv[2], NULL, 10);
+        uint64_t squarings = (uint64_t)strtoll(argv[2], NULL, 10);
         char *path = argv[3];
         printf("Locking %s\n", path);
         lock_file(path, squarings);
