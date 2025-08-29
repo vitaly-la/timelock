@@ -22,15 +22,18 @@ static void lock_file(const char *path, uint64_t squarings)
 
     struct stat sb;
     fstat(fd, &sb);
-    size_t len = (size_t)sb.st_size;
+    size_t len = sb.st_size;
 
-    char *addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
+    uint8_t *addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
 
     char *secret_key, *modulo;
     gen_puzzle(&secret_key, &modulo, squarings);
-    printf("Generated modulo string: %s\n", modulo);
+    uint16_t modulo_len = strlen(modulo) + 1;
 
-    encrypt(addr, len, secret_key);
+    uint8_t *cipher_text = malloc(len);
+    uint8_t nonce[24];
+    uint8_t mac[16];
+    encrypt(cipher_text, nonce, mac, addr, len, secret_key);
 
     char ext[] = ".enc";
     char *new_path = malloc(strlen(path) + sizeof(ext));
@@ -38,10 +41,16 @@ static void lock_file(const char *path, uint64_t squarings)
     memcpy(new_path + strlen(path), ext, sizeof(ext));
 
     FILE *fp = fopen(new_path, "w");
-    fwrite(addr, sizeof(*addr), len, fp);
+    fwrite(&squarings, sizeof(squarings), 1, fp);
+    fwrite(&modulo_len, sizeof(modulo_len), 1, fp);
+    fwrite(modulo, sizeof(*modulo), modulo_len, fp);
+    fwrite(nonce, sizeof(*nonce), sizeof(nonce), fp);
+    fwrite(mac, sizeof(*mac), sizeof(mac), fp);
+    fwrite(cipher_text, sizeof(*cipher_text), len, fp);
 
     fclose(fp);
     free(new_path);
+    free(cipher_text);
     free(secret_key);
     free(modulo);
     munmap(addr, len);
@@ -54,9 +63,9 @@ static void unlock_file(const char *path)
 
     struct stat sb;
     fstat(fd, &sb);
-    size_t len = (size_t)sb.st_size;
+    size_t len = sb.st_size;
 
-    char *addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
+    uint8_t *addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
 
     char ext[] = ".dec";
     char *new_path = malloc(strlen(path) + sizeof(ext));
@@ -85,7 +94,7 @@ int main(int argc, char **argv)
             return 0;
         }
 
-        uint64_t squarings = (uint64_t)strtoll(argv[2], NULL, 10);
+        uint64_t squarings = strtoll(argv[2], NULL, 10);
         char *path = argv[3];
         printf("Locking %s\n", path);
         lock_file(path, squarings);

@@ -26,7 +26,7 @@ WARN += -Wwrite-strings
 all:
 	cc -std=c99 -O3 ${WARN} -c main.c gen_puzzle.c crypto.c
 	cc -static main.o gen_puzzle.o crypto.o \
-	           libgmp.a libmpz.a -o timelock
+	           libgmp.a libmpz.a libmonocypher.a -o timelock
 
 clean:
 	rm -f *.o timelock
