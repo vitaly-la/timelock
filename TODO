@@ -1,4 +1,0 @@
-- add error handling
-- secure random state initialization
-- secure gmp functions
-- wipe memory

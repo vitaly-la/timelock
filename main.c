@@ -18,67 +18,75 @@ static void print_usage(void)
 
 static void lock_file(const char *path, uint64_t squarings)
 {
-    int fd = open(path, O_RDONLY);
+    int fd			= 0;
+    uint8_t *addr		= NULL;
+    char *secret_key		= NULL;
+    char *modulo		= NULL;
+    uint8_t *cipher_text	= NULL;
+    char *new_path		= NULL;
+    FILE *fp			= NULL;
+    int err			= 0;
+
+    fd = open(path, O_RDONLY);
+    if (!fd) {
+        printf("open failed\n");
+        err = 1;
+        goto cleanup;
+    }
 
     struct stat sb;
     fstat(fd, &sb);
-    size_t len = sb.st_size;
+    uint32_t len = sb.st_size;
 
-    uint8_t *addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
+    addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (!addr) {
+        printf("mmap failed\n");
+        err = 1;
+        goto cleanup;
+    }
 
-    char *secret_key, *modulo;
     gen_puzzle(&secret_key, &modulo, squarings);
     uint16_t modulo_len = strlen(modulo) + 1;
 
-    uint8_t *cipher_text = malloc(len);
+    cipher_text = malloc(len);
     uint8_t nonce[24];
     uint8_t mac[16];
     encrypt(cipher_text, nonce, mac, addr, len, secret_key);
 
     char ext[] = ".enc";
-    char *new_path = malloc(strlen(path) + sizeof(ext));
+    new_path = malloc(strlen(path) + sizeof(ext));
     memcpy(new_path, path, strlen(path));
     memcpy(new_path + strlen(path), ext, sizeof(ext));
 
-    FILE *fp = fopen(new_path, "w");
-    fwrite(&squarings, sizeof(squarings), 1, fp);
-    fwrite(&modulo_len, sizeof(modulo_len), 1, fp);
-    fwrite(modulo, sizeof(*modulo), modulo_len, fp);
-    fwrite(nonce, sizeof(*nonce), sizeof(nonce), fp);
-    fwrite(mac, sizeof(*mac), sizeof(mac), fp);
-    fwrite(cipher_text, sizeof(*cipher_text), len, fp);
+    fp = fopen(new_path, "w");
+    if (!fp) {
+        printf("fopen failed\n");
+        err = 1;
+        goto cleanup;
+    }
+    fwrite(&squarings,	sizeof(squarings),	1,		fp);
+    fwrite(&modulo_len,	sizeof(modulo_len),	1,		fp);
+    fwrite(modulo,	sizeof(*modulo),	modulo_len,	fp);
+    fwrite(nonce,	sizeof(*nonce),		sizeof(nonce),	fp);
+    fwrite(mac,		sizeof(*mac),		sizeof(mac),	fp);
+    fwrite(&len,	sizeof(len),		1,		fp);
+    fwrite(cipher_text,	sizeof(*cipher_text),	len,		fp);
 
-    fclose(fp);
-    free(new_path);
-    free(cipher_text);
-    free(secret_key);
-    free(modulo);
-    munmap(addr, len);
-    close(fd);
+cleanup:
+    if (addr)		munmap(addr, len);
+    if (fd)		close(fd);
+    if (secret_key)	free(secret_key);
+    if (modulo)		free(modulo);
+    if (cipher_text)	free(cipher_text);
+    if (new_path)	free(new_path);
+    if (fp)		fclose(fp);
+
+    if (err) exit(1);
 }
 
 static void unlock_file(const char *path)
 {
-    int fd = open(path, O_RDONLY);
-
-    struct stat sb;
-    fstat(fd, &sb);
-    size_t len = sb.st_size;
-
-    uint8_t *addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
-
-    char ext[] = ".dec";
-    char *new_path = malloc(strlen(path) + sizeof(ext));
-    memcpy(new_path, path, strlen(path));
-    memcpy(new_path + strlen(path), ext, sizeof(ext));
-
-    FILE *fp = fopen(new_path, "w");
-    fwrite(addr, sizeof(*addr), len, fp);
-
-    fclose(fp);
-    free(new_path);
-    munmap(addr, len);
-    close(fd);
+    printf("Unlocking %s\n", path);
 }
 
 int main(int argc, char **argv)
@@ -95,6 +103,11 @@ int main(int argc, char **argv)
         }
 
         uint64_t squarings = strtoll(argv[2], NULL, 10);
+        if (!squarings) {
+            print_usage();
+            return 0;
+        }
+
         char *path = argv[3];
         printf("Locking %s\n", path);
         lock_file(path, squarings);
