@@ -1,5 +1,3 @@
-CC ?= cc
-
 OBJ     := main.o generator.o solver.o crypto.o monocypher.o
 LIB     := libgmp.a libmpz.a
 TARGET  := timelock
@@ -9,7 +7,7 @@ CFLAGS  += -Wfloat-equal -Wformat=2 -Wmissing-declarations
 CFLAGS  += -Wmissing-include-dirs -Wmissing-prototypes -Wnested-externs
 CFLAGS  += -Wpointer-arith -Wredundant-decls -Wsequence-point -Wshadow
 CFLAGS  += -Wstrict-prototypes -Wswitch -Wundef -Wunreachable-code
-CFLAGS  += -Wunused-but-set-parameter -Wwrite-strings
+CFLAGS  += -Wunused-parameter -Wwrite-strings
 LDFLAGS := -static -s
 
 ${TARGET}: ${OBJ}

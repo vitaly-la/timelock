@@ -1,11 +1,10 @@
 #include "crypto.h"
 
 #include <string.h>
-#include <sys/random.h>
 
 #include "monocypher.h"
 
-int encrypt(uint8_t *cipher_text, uint8_t nonce[24], uint8_t mac[16],
+int encrypt(uint8_t *cipher_text, uint8_t mac[16],
             const uint8_t *message, size_t len,
             const char *secret_key)
 {
@@ -13,15 +12,13 @@ int encrypt(uint8_t *cipher_text, uint8_t nonce[24], uint8_t mac[16],
     crypto_blake2b(hash, sizeof(hash),
                    (const uint8_t*)secret_key, strlen(secret_key));
 
-    if (getrandom(nonce, 24, 0) != 24) {
-        return -1;
-    }
+    uint8_t nonce[24] = {0};
     crypto_aead_lock(cipher_text, mac, hash, nonce,
                      NULL, 0, message, len);
     return 0;
 }
 
-void decrypt(uint8_t *plain_text, uint8_t nonce[24], uint8_t mac[16],
+void decrypt(uint8_t *plain_text, uint8_t mac[16],
              const uint8_t *cipher_text, size_t len,
              const char *secret_key)
 {
@@ -29,6 +26,7 @@ void decrypt(uint8_t *plain_text, uint8_t nonce[24], uint8_t mac[16],
     crypto_blake2b(hash, sizeof(hash),
                    (const uint8_t*)secret_key, strlen(secret_key));
 
+    uint8_t nonce[24] = {0};
     crypto_aead_unlock(plain_text, mac, hash, nonce,
                        NULL, 0, cipher_text, len);
 }

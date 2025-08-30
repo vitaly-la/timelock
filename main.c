@@ -60,9 +60,8 @@ static void lock_file(const char *path, uint64_t squarings)
     uint16_t modulo_len = strlen(modulo) + 1;
 
     cipher_text = malloc(len);
-    uint8_t nonce[24];
     uint8_t mac[16];
-    if (encrypt(cipher_text, nonce, mac, addr, len, secret_key)) {
+    if (encrypt(cipher_text, mac, addr, len, secret_key)) {
         printf("encrypt failed\n");
         err = 1;
         goto cleanup;
@@ -82,7 +81,6 @@ static void lock_file(const char *path, uint64_t squarings)
     fwrite(&squarings,  sizeof(squarings),    1,             fp);
     fwrite(&modulo_len, sizeof(modulo_len),   1,             fp);
     fwrite(&len,        sizeof(len),          1,             fp);
-    fwrite(nonce,       sizeof(*nonce),       sizeof(nonce), fp);
     fwrite(mac,         sizeof(*mac),         sizeof(mac),   fp);
     fwrite(modulo,      sizeof(*modulo),      modulo_len,    fp);
     fwrite(cipher_text, sizeof(*cipher_text), len,           fp);
@@ -112,7 +110,6 @@ static void unlock_file(const char *path)
 
     uint64_t squarings;
     uint16_t modulo_len;
-    uint8_t nonce[24];
     uint8_t mac[16];
     uint32_t len;
 
@@ -126,7 +123,6 @@ static void unlock_file(const char *path)
     err |= fread_safe(&squarings,  sizeof(squarings),  1,             fp);
     err |= fread_safe(&modulo_len, sizeof(modulo_len), 1,             fp);
     err |= fread_safe(&len,        sizeof(len),        1,             fp);
-    err |= fread_safe(nonce,       sizeof(*nonce),     sizeof(nonce), fp);
     err |= fread_safe(mac,         sizeof(*mac),       sizeof(mac),   fp);
 
     if (!err) modulo = malloc(modulo_len);
@@ -145,7 +141,7 @@ static void unlock_file(const char *path)
 
     solve_puzzle(&secret_key, squarings, modulo);
     plain_text = malloc(len);
-    decrypt(plain_text, nonce, mac, cipher_text, len, secret_key);
+    decrypt(plain_text, mac, cipher_text, len, secret_key);
 
     char ext[] = ".dec";
     new_path = malloc(strlen(path) + sizeof(ext));
