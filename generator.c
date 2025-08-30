@@ -4,8 +4,8 @@
 
 enum { half_key_size = 1536 };
 
-void gen_puzzle(char **secret_key_str, char **modulo_str,
-                uint64_t squarings)
+void generate_puzzle(char **secret_key_str, char **modulo_str,
+                     uint64_t squarings)
 {
     gmp_randstate_t state;
     gmp_randinit_default(state);

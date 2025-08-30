@@ -1,33 +1,22 @@
-WARN += -Wpedantic -pedantic-errors
-WARN += -Werror
-WARN += -Wall
-WARN += -Wextra
-WARN += -Waggregate-return
-WARN += -Wbad-function-cast
-WARN += -Wcast-align
-WARN += -Wcast-qual
-WARN += -Wfloat-equal
-WARN += -Wformat=2
-WARN += -Wmissing-declarations
-WARN += -Wmissing-include-dirs
-WARN += -Wmissing-prototypes
-WARN += -Wnested-externs
-WARN += -Wpointer-arith
-WARN += -Wredundant-decls
-WARN += -Wsequence-point
-WARN += -Wshadow
-WARN += -Wstrict-prototypes
-WARN += -Wswitch
-WARN += -Wundef
-WARN += -Wunreachable-code
-WARN += -Wunused-but-set-parameter
-WARN += -Wwrite-strings
+CC ?= cc
 
-all:
-	cc -std=c99 -O3 ${WARN} -c main.c generator.c crypto.c solver.c \
-	                           monocypher.c
-	cc -static main.o generator.o crypto.o solver.o monocypher.o \
-	           libgmp.a libmpz.a -o timelock
+OBJ     := main.o generator.o solver.o crypto.o monocypher.o
+LIB     := libgmp.a libmpz.a
+TARGET  := timelock
+CFLAGS  := -std=c99 -O3 -Wpedantic -pedantic-errors -Werror -Wall -Wextra
+CFLAGS  += -Waggregate-return -Wbad-function-cast -Wcast-align -Wcast-qual
+CFLAGS  += -Wfloat-equal -Wformat=2 -Wmissing-declarations
+CFLAGS  += -Wmissing-include-dirs -Wmissing-prototypes -Wnested-externs
+CFLAGS  += -Wpointer-arith -Wredundant-decls -Wsequence-point -Wshadow
+CFLAGS  += -Wstrict-prototypes -Wswitch -Wundef -Wunreachable-code
+CFLAGS  += -Wunused-but-set-parameter -Wwrite-strings
+LDFLAGS := -static -s
+
+${TARGET}: ${OBJ}
+	${CC} ${LDFLAGS} ${OBJ} ${LIB} -o ${TARGET}
+
+%.o: %.c
+	$(CC) -c $(CFLAGS) $< -o $@
 
 clean:
-	rm -f *.o timelock
+	rm -f ${OBJ} ${TARGET}

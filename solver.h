@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-void solve(char **secret_key_str, uint64_t squarings,
-           const char *modulo_str);
+void solve_puzzle(char **secret_key_str, uint64_t squarings,
+                  const char *modulo_str);
 
 #endif

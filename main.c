@@ -46,7 +46,7 @@ static void lock_file(const char *path, uint64_t squarings)
         goto cleanup;
     }
 
-    gen_puzzle(&secret_key, &modulo, squarings);
+    generate_puzzle(&secret_key, &modulo, squarings);
     uint16_t modulo_len = strlen(modulo) + 1;
 
     cipher_text = malloc(len);
@@ -119,7 +119,7 @@ static void unlock_file(const char *path)
     cipher_text = malloc(len);
     fread(cipher_text, sizeof(*cipher_text), len,           fp);
 
-    solve(&secret_key, squarings, modulo);
+    solve_puzzle(&secret_key, squarings, modulo);
     plain_text = malloc(len);
     decrypt(plain_text, nonce, mac, cipher_text, len, secret_key);
 
