@@ -18,6 +18,15 @@ static void print_usage(void)
            "       timelock unlock <filename>\n");
 }
 
+static int fread_safe(void *ptr, size_t size, size_t nmemb, FILE *stream)
+{
+    if (fread(ptr, size, nmemb, stream) == nmemb) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
 static void lock_file(const char *path, uint64_t squarings)
 {
     int fd               = 0;
@@ -53,7 +62,11 @@ static void lock_file(const char *path, uint64_t squarings)
     cipher_text = malloc(len);
     uint8_t nonce[24];
     uint8_t mac[16];
-    encrypt(cipher_text, nonce, mac, addr, len, secret_key);
+    if (encrypt(cipher_text, nonce, mac, addr, len, secret_key)) {
+        printf("encrypt failed\n");
+        err = 1;
+        goto cleanup;
+    }
 
     char ext[] = ".enc";
     new_path = malloc(strlen(path) + sizeof(ext));
@@ -68,10 +81,10 @@ static void lock_file(const char *path, uint64_t squarings)
     }
     fwrite(&squarings,  sizeof(squarings),    1,             fp);
     fwrite(&modulo_len, sizeof(modulo_len),   1,             fp);
-    fwrite(modulo,      sizeof(*modulo),      modulo_len,    fp);
+    fwrite(&len,        sizeof(len),          1,             fp);
     fwrite(nonce,       sizeof(*nonce),       sizeof(nonce), fp);
     fwrite(mac,         sizeof(*mac),         sizeof(mac),   fp);
-    fwrite(&len,        sizeof(len),          1,             fp);
+    fwrite(modulo,      sizeof(*modulo),      modulo_len,    fp);
     fwrite(cipher_text, sizeof(*cipher_text), len,           fp);
 
 cleanup:
@@ -110,15 +123,25 @@ static void unlock_file(const char *path)
         goto cleanup;
     }
 
-    fread(&squarings,  sizeof(squarings),    1,             fp);
-    fread(&modulo_len, sizeof(modulo_len),   1,             fp);
-    modulo = malloc(modulo_len);
-    fread(modulo,      sizeof(*modulo),      modulo_len,    fp);
-    fread(nonce,       sizeof(*nonce),       sizeof(nonce), fp);
-    fread(mac,         sizeof(*mac),         sizeof(mac),   fp);
-    fread(&len,        sizeof(len),          1,             fp);
-    cipher_text = malloc(len);
-    fread(cipher_text, sizeof(*cipher_text), len,           fp);
+    err |= fread_safe(&squarings,  sizeof(squarings),  1,             fp);
+    err |= fread_safe(&modulo_len, sizeof(modulo_len), 1,             fp);
+    err |= fread_safe(&len,        sizeof(len),        1,             fp);
+    err |= fread_safe(nonce,       sizeof(*nonce),     sizeof(nonce), fp);
+    err |= fread_safe(mac,         sizeof(*mac),       sizeof(mac),   fp);
+
+    if (!err) modulo = malloc(modulo_len);
+    if (!err) cipher_text = malloc(len);
+    if (err) {
+        printf("fread failed\n");
+        goto cleanup;
+    }
+
+    err |= fread_safe(modulo,      sizeof(*modulo),    modulo_len,    fp);
+    err |= fread_safe(cipher_text, sizeof(uint8_t),    len,           fp);
+    if (err) {
+        printf("fread failed\n");
+        goto cleanup;
+    }
 
     solve_puzzle(&secret_key, squarings, modulo);
     plain_text = malloc(len);
@@ -149,11 +172,11 @@ cleanup:
     if (err) exit(1);
 }
 
-static uint64_t benchmark_ns(uint64_t squarings)
+static double benchmark(uint64_t squarings)
 {
     char *secret_key = NULL;
     char *modulo     = NULL;
-    struct timespec start, end;
+    clock_t start, end;
 
     generate_puzzle(&secret_key, &modulo, squarings);
 
@@ -162,15 +185,14 @@ static uint64_t benchmark_ns(uint64_t squarings)
         secret_key = NULL;
     }
 
-    clock_gettime(CLOCK_VIRTUAL, &start);
+    start = clock();
     solve_puzzle(&secret_key, squarings, modulo);
-    clock_gettime(CLOCK_VIRTUAL, &end);
+    end = clock();
 
     if (secret_key) free(secret_key);
     if (modulo)     free(modulo);
 
-    return 1000000000 * (end.tv_sec - start.tv_sec)
-           + end.tv_nsec - start.tv_nsec;
+    return (end - start) / (double)CLOCKS_PER_SEC;
 }
 
 int main(int argc, char **argv)
@@ -198,7 +220,7 @@ int main(int argc, char **argv)
         } else {
             printf("Running benchmark\n");
             uint64_t test_squarings = 1000000;
-            uint64_t elapsed_ns = benchmark_ns(test_squarings);
+            double elapsed = benchmark(test_squarings);
 
             char *seconds_str = malloc(arg2_len);
             memcpy(seconds_str, argv[2], arg2_len - 1);
@@ -212,11 +234,11 @@ int main(int argc, char **argv)
 
             if (seconds_str) free(seconds_str);
 
-            uint64_t rate = 1000000000 * test_squarings / elapsed_ns;
-            squarings = rate * seconds;
+            squarings = test_squarings * seconds / elapsed;
+            uint64_t rate = test_squarings / elapsed;
             printf("%lu squarings take approximately %s "
                    "with rate %lu/s\n",
-                   test_squarings, argv[2], rate);
+                   squarings, argv[2], rate);
         }
 
         char *path = argv[3];
