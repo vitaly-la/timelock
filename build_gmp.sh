@@ -1,5 +1,5 @@
 #!/bin/sh
-set -euxo pipefail
+set -eux
 IFS=$'\n\t'
 
 if [ -z "${CC+x}" ]; then
