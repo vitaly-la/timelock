@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "crypto.h"
@@ -148,6 +149,30 @@ cleanup:
     if (err) exit(1);
 }
 
+static uint64_t benchmark_ns(uint64_t squarings)
+{
+    char *secret_key = NULL;
+    char *modulo     = NULL;
+    struct timespec start, end;
+
+    generate_puzzle(&secret_key, &modulo, squarings);
+
+    if (secret_key) {
+        free(secret_key);
+        secret_key = NULL;
+    }
+
+    clock_gettime(CLOCK_VIRTUAL, &start);
+    solve_puzzle(&secret_key, squarings, modulo);
+    clock_gettime(CLOCK_VIRTUAL, &end);
+
+    if (secret_key) free(secret_key);
+    if (modulo)     free(modulo);
+
+    return 1000000000 * (end.tv_sec - start.tv_sec)
+           + end.tv_nsec - start.tv_nsec;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -161,10 +186,37 @@ int main(int argc, char **argv)
             return 0;
         }
 
-        uint64_t squarings = strtoll(argv[2], NULL, 10);
-        if (!squarings) {
-            print_usage();
-            return 0;
+        uint64_t squarings = 0;
+        size_t arg2_len = strlen(argv[2]);
+
+        if (argv[2][arg2_len - 1] != 's') {
+            squarings = atoll(argv[2]);
+            if (!squarings) {
+                print_usage();
+                return 0;
+            }
+        } else {
+            printf("Running benchmark\n");
+            uint64_t test_squarings = 1000000;
+            uint64_t elapsed_ns = benchmark_ns(test_squarings);
+
+            char *seconds_str = malloc(arg2_len);
+            memcpy(seconds_str, argv[2], arg2_len - 1);
+            seconds_str[arg2_len - 1] = '\0';
+
+            uint64_t seconds = atoll(seconds_str);
+            if (!seconds) {
+                print_usage();
+                return 0;
+            }
+
+            if (seconds_str) free(seconds_str);
+
+            uint64_t rate = 1000000000 * test_squarings / elapsed_ns;
+            squarings = rate * seconds;
+            printf("%lu squarings take approximately %s "
+                   "with rate %lu/s\n",
+                   test_squarings, argv[2], rate);
         }
 
         char *path = argv[3];
