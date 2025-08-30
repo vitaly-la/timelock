@@ -24,9 +24,10 @@ WARN += -Wunused-but-set-parameter
 WARN += -Wwrite-strings
 
 all:
-	cc -std=c99 -O3 ${WARN} -c main.c gen_puzzle.c crypto.c
-	cc -static main.o gen_puzzle.o crypto.o \
-	           libgmp.a libmpz.a libmonocypher.a -o timelock
+	cc -std=c99 -O3 ${WARN} -c main.c generator.c crypto.c solver.c \
+	                           monocypher.c
+	cc -static main.o generator.o crypto.o solver.o monocypher.o \
+	           libgmp.a libmpz.a -o timelock
 
 clean:
 	rm -f *.o timelock

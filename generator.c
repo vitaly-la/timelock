@@ -1,4 +1,4 @@
-#include "gen_puzzle.h"
+#include "generator.h"
 
 #include "gmp.h"
 
@@ -32,8 +32,8 @@ void gen_puzzle(char **secret_key_str, char **modulo_str,
     mpz_powm(exp, two, squarings_mpz, phi);
     mpz_powm(secret_key, two, exp, modulo);
 
-    *secret_key_str	= mpz_get_str(NULL, 10, secret_key);
-    *modulo_str		= mpz_get_str(NULL, 10, modulo);
+    *secret_key_str = mpz_get_str(NULL, 10, secret_key);
+    *modulo_str     = mpz_get_str(NULL, 10, modulo);
 
     mpz_clears(rop, p, q, modulo, p1, q1, phi,
                exp, two, squarings_mpz, secret_key, NULL);
