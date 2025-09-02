@@ -39,7 +39,7 @@ static void lock_file(const char *path, uint64_t squarings)
     int err              = 0;
 
     fd = open(path, O_RDONLY);
-    if (!fd) {
+    if (fd == -1) {
         printf("open failed\n");
         err = 1;
         goto cleanup;
@@ -50,7 +50,7 @@ static void lock_file(const char *path, uint64_t squarings)
     uint32_t len = sb.st_size;
 
     addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (!addr) {
+    if (addr == MAP_FAILED) {
         printf("mmap failed\n");
         err = 1;
         goto cleanup;
@@ -61,11 +61,7 @@ static void lock_file(const char *path, uint64_t squarings)
 
     cipher_text = malloc(len);
     uint8_t mac[16];
-    if (encrypt(cipher_text, mac, addr, len, secret_key)) {
-        printf("encrypt failed\n");
-        err = 1;
-        goto cleanup;
-    }
+    encrypt(cipher_text, mac, addr, len, secret_key);
 
     char ext[] = ".enc";
     new_path = malloc(strlen(path) + sizeof(ext));
