@@ -17,7 +17,7 @@ void encrypt(uint8_t *cipher_text, uint8_t mac[16],
                      NULL, 0, message, len);
 }
 
-void decrypt(uint8_t *plain_text, uint8_t mac[16],
+void decrypt(uint8_t *plain_text, const uint8_t mac[16],
              const uint8_t *cipher_text, size_t len,
              const char *secret_key)
 {
