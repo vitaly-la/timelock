@@ -1,9 +1,28 @@
 #include "solver.h"
 
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "gmp.h"
+
+static volatile sig_atomic_t benchmark_active;
+static volatile sig_atomic_t seconds_left;
+
+static void sig_handler(int signo)
+{
+    (void)signo;
+    --seconds_left;
+    if (seconds_left) {
+        printf("\rRunning benchmark, %ds remaining...", (int)seconds_left);
+        fflush(stdout);
+        signal(SIGALRM, sig_handler);
+        alarm(1);
+    } else {
+        benchmark_active = 0;
+    }
+}
 
 void solve_puzzle(char **secret_key_str, uint64_t squarings,
                   const char *modulo_str)
@@ -41,4 +60,32 @@ void solve_puzzle(char **secret_key_str, uint64_t squarings,
     *secret_key_str = mpz_get_str(NULL, 10, secret_key);
 
     mpz_clears(secret_key, modulo, NULL);
+}
+
+uint64_t run_benchmark(const char *modulo_str, unsigned seconds)
+{
+    mpz_t secret_key, modulo;
+    mpz_inits(secret_key, modulo, NULL);
+
+    mpz_set_ui(secret_key, 2);
+    mpz_init_set_str(modulo, modulo_str, 10);
+
+    uint64_t squarings = 0;
+
+    benchmark_active = 1;
+    seconds_left = seconds;
+    printf("Running benchmark, %ds remaining...", (int)seconds_left);
+    fflush(stdout);
+    signal(SIGALRM, sig_handler);
+    alarm(1);
+
+    for (; benchmark_active; ++squarings) {
+        mpz_powm_ui(secret_key, secret_key, 2, modulo);
+    }
+
+    printf("\n");
+
+    mpz_clears(secret_key, modulo, NULL);
+
+    return squarings;
 }

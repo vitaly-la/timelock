@@ -5,12 +5,13 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "crypto.h"
 #include "generator.h"
 #include "solver.h"
+
+enum { benchmark_seconds = 5 };
 
 static void print_usage(void)
 {
@@ -164,27 +165,24 @@ cleanup:
     if (err) exit(1);
 }
 
-static double benchmark(uint64_t squarings)
+static uint64_t benchmark(unsigned seconds)
 {
     char *secret_key = NULL;
     char *modulo     = NULL;
-    clock_t start, end;
 
-    generate_puzzle(&secret_key, &modulo, squarings);
+    generate_puzzle(&secret_key, &modulo, 0);
 
     if (secret_key) {
         free(secret_key);
         secret_key = NULL;
     }
 
-    start = clock();
-    solve_puzzle(&secret_key, squarings, modulo);
-    end = clock();
+    uint64_t squarings = run_benchmark(modulo, seconds);
 
     if (secret_key) free(secret_key);
     if (modulo)     free(modulo);
 
-    return (end - start) / (double)CLOCKS_PER_SEC;
+    return squarings;
 }
 
 int main(int argc, char **argv)
@@ -210,15 +208,13 @@ int main(int argc, char **argv)
                 return 0;
             }
         } else {
-            printf("Running benchmark\n");
-            uint64_t test_squarings = 1000000;
-            double elapsed = benchmark(test_squarings);
+            uint64_t test_squarings = benchmark(benchmark_seconds);
 
             char *seconds_str = malloc(arg2_len);
             memcpy(seconds_str, argv[2], arg2_len - 1);
             seconds_str[arg2_len - 1] = '\0';
 
-            uint64_t seconds = atoll(seconds_str);
+            uint32_t seconds = atoi(seconds_str);
             if (!seconds) {
                 print_usage();
                 return 0;
@@ -226,8 +222,8 @@ int main(int argc, char **argv)
 
             if (seconds_str) free(seconds_str);
 
-            squarings = test_squarings * seconds / elapsed;
-            uint64_t rate = test_squarings / elapsed;
+            squarings = test_squarings * seconds / benchmark_seconds;
+            uint64_t rate = test_squarings / benchmark_seconds;
             printf("%lu squarings take approximately %s "
                    "with rate %lu/s\n",
                    squarings, argv[2], rate);
